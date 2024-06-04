@@ -1,0 +1,11 @@
+[Unit]
+Description=Syslog Proxy Port 15140
+After=network-online.target
+
+[Service]
+User=syslog_proxy
+Restart=on-failure
+ExecStart=python3 /usr/local/bin/syslog_proxy.py --listen-port 15410 --forward-host 127.0.0.1 --forward-port 5140
+
+[Install]
+WantedBy=multi-user.target
