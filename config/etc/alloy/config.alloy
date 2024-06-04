@@ -1,0 +1,91 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+//
+// SNMP
+//
+
+// https://grafana.com/docs/alloy/latest/reference/components/prometheus.exporter.snmp/#target-block
+prometheus.exporter.snmp "pfsense" {
+    config_file = "/etc/snmp_exporter/snmp.yaml"
+
+    target "pfsense_az_a" {
+        address     = "10.247.0.10"
+        module      = "pfsense"
+    }
+
+    target "pfsense_az_b" {
+        address     = "10.247.1.10"
+        module      = "pfsense"
+    }
+
+}
+
+// Configure a prometheus.scrape component to collect SNMP metrics from the exporter above, and forward them to the remote_write.
+prometheus.scrape "pfsense" {
+    targets    = prometheus.exporter.snmp.pfsense.targets
+    forward_to = [prometheus.remote_write.pfsense.receiver]
+}
+
+// https://grafana.com/docs/alloy/latest/reference/components/prometheus.remote_write/#authorization-block
+prometheus.remote_write "pfsense" {
+    endpoint {
+        // https://grafana.com/orgs/<your_org_nane_here>/ -> choose your stack -> Prometheus -> Send metrics
+        url = "https://some_region.grafana.net/api/prom/push"
+
+        basic_auth {
+           username =  "your_username_here" // https://grafana.com/orgs/<your_org_nane_here>/ -> choose your stack -> Prometheus -> Send metrics
+           password =  "your_password_here" // https://grafana.com/orgs/<your_org_nane_here>/ -> choose your stack -> Prometheus -> Send metrics
+        }
+    }
+}
+
+//
+// Syslog
+//
+
+loki.source.syslog "pfsense" {
+  listener {
+    address  = "127.0.0.1:5140"
+    protocol = "udp"
+    label_structured_data = true
+    // Note: these are example labels and will need changing!
+    labels = {
+	  account           = "production",
+	  availability_zone = "az-a",
+	  region            = "eu-west-2",
+	  service_name      = "pfsense",
+    }
+  }
+
+  listener {
+    address  = "127.0.0.1:5141"
+    protocol = "udp"
+    label_structured_data = true
+    // Note: these are example labels and will need changing!
+    labels = {
+	  account           = "production",
+	  availability_zone = "az-b",
+	  region            = "eu-west-2",
+	  service_name      = "pfsense",
+    }
+  }
+
+
+  forward_to = [loki.write.pfsense.receiver]
+}
+
+
+loki.write "pfsense" {
+  endpoint {
+    // https://grafana.com/orgs/<your_org_nane_here>/ -> choose your stack -> Prometheus -> Send metrics
+    url = "https://some_region.grafana.net/loki/api/v1/push"
+
+    basic_auth {
+      username = "your_username_here" // https://grafana.com/orgs/<your_org_nane_here>/ -> choose your stack -> Prometheus -> Send metrics
+      password = "your_password_here" // https://grafana.com/orgs/<your_org_nane_here>/ -> choose your stack -> Prometheus -> Send metrics
+    }
+  }
+}
